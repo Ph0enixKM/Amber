@@ -1,5 +1,5 @@
 use heraclitus_compiler::prelude::*;
-use colored::Colorize;
+use colored::{Colorize, CustomColor};
 use crate::compiler::AmberCompiler;
 use super::flag_registry::FlagRegistry;
 use std::env;
@@ -36,6 +36,7 @@ impl CLI {
 
     pub fn run(&mut self) {
         self.flags.register("-e", true);
+        self.flags.register("docs", true);
         self.flags.register("-h", false);
         self.flags.register("--help", false);
         self.args = self.flags.parse(env::args().collect());
@@ -60,6 +61,35 @@ impl CLI {
                     Message::new_err_msg("No value passed after -e flag")
                         .comment("Write code to be evaluated after the -e flag")
                         .show();
+                    std::process::exit(1);
+                }
+            }
+        }
+        // Generate documentation
+        else if self.flags.flag_triggered("docs") {
+            let input = match self.flags.get_flag("docs").unwrap().value.clone() {
+                Some(input) => input,
+                None => {
+                    Message::new_err_msg("No input file provided")
+                        .comment("Write the input file after the docs command")
+                        .show();
+                    std::process::exit(1);
+                }
+            };
+            match self.read_file(input.clone()) {
+                Ok(code) => {
+                    match AmberCompiler::new(code, Some(input)).generate_docs() {
+                        Ok(()) => {
+                            Message::new_info_msg("Documentation generated successfully").show();
+                        },
+                        Err(err) => {
+                            err.show();
+                            std::process::exit(1);
+                        }
+                    }
+                }
+                Err(err) => {
+                    Message::new_err_msg(err.to_string()).show();
                     std::process::exit(1);
                 }
             }
@@ -97,20 +127,29 @@ impl CLI {
         else {
             println!("{}'s compiler", self.name);
             println!("Version {}\n", self.version);
-            println!("USAGE:\t\t\t\tEXAMPLE:");
-            println!("{}", "For evaluation:".dimmed());
+            println!("{}", " USAGE ".custom_color(CustomColor{r: 255, g: 255, b: 255}).on_color("#000"));
+            println!("{}", "For evaluation:".bold());
             {
-                let example = format!("{} foo{}", self.exe_name, self.ext).dimmed();
-                println!("\t{} [INPUT]\t\t{}", self.exe_name, example);
+                println!("  {} [INPUT]", self.exe_name);
+                println!("{}", format!("  {} foo{}\n", self.exe_name, self.ext).dimmed());
             }
             {
-                let example = format!("{} -e \"\\$echo Hello World\\$\"", self.exe_name).dimmed();
-                println!("\t{} -e [EXPR]\t\t{}", self.exe_name, example);
+                println!("  {} -e [EXPR]", self.exe_name);
+                println!("{}", format!("  {} -e \"\\$echo Hello World\\$\"\n", self.exe_name).dimmed());
             }
-            println!("{}", "For compiling:".dimmed());
+            println!("{}", "For compiling:".bold());
             {
-                let example = format!("{} foo{} bar{}", self.exe_name, self.ext, self.ext).dimmed();
-                println!("\t{} [INPUT] [OUTPUT]\t{}", self.exe_name, example);
+                println!("  {} [INPUT] [OUTPUT]", self.exe_name);
+                println!("{}", format!("  {} foo{} bar{}\n", self.exe_name, self.ext, self.ext).dimmed());
+            }
+            println!("{}", "For documentation generation:".bold());
+            {
+                println!("  {} docs [INPUT]", self.exe_name);
+                println!("{}", format!("  {} docs foo{}\n", self.exe_name, self.ext).dimmed());
+            }
+            {
+                println!("  {} docs [INPUT] [OUTPUT DIR]", self.exe_name);
+                println!("{}", format!("  {} docs foo{} docs/", self.exe_name, self.ext).dimmed());
             }
         }
     }
@@ -134,7 +173,7 @@ impl CLI {
             Ok(mut file) => {
                 write!(file, "{}", code).unwrap();
                 Self::set_file_permission(&file, output_path);
-                
+
             },
             Err(err) => {
                 Message::new_err_msg(err.to_string()).show();
