@@ -37,9 +37,9 @@ pub struct Cli {
     #[arg(long)]
     docs: bool,
 
-    /// Don't format the output file
-    #[arg(long)]
-    disable_format: bool,
+    /// Disabled postprocessors
+    #[arg(help = "Disable a postprocessor\nPossible values: shfmt, bshchk\nTo select multiple, pass this argument multiple times with different values", long)]
+    disable_postprocessor: Vec<String>,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
